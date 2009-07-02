@@ -15,4 +15,5 @@
     (write-graph-file in-seq)
     (.start process)))
 
-(write-graph-image [[1 2 3] [2 3 4] [4] [0 4 5 6] [] [6] [5 0]])
+(defn five-rands [x] (distinct (take 4 (repeatedly #(rand-int 25)))))
+(write-graph-image (map five-rands (range 25)))
