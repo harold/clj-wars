@@ -1,0 +1,1 @@
+java -cp clojure-1.0.0.jar;clojure-contrib.jar clojure.main clj-wars.clj
