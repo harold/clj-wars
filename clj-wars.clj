@@ -62,8 +62,4 @@
         (recur (get-menu player))))))
 
 (def port 8866)
-
-;; This noise makes recompiling in the repl restart the server
-(declare server)
-(if (.isBound #'server) (close-server server))
-(def server (create-server port client-handler))
+(defonce server (create-server port #(client-handler %1 %2)))
