@@ -2,6 +2,7 @@
   (:use [clojure.contrib server-socket duck-streams]))
 
 (load-file "graph.clj")
+(load-file "color.clj")
 
 (def *sector-count* 25)
 (defn get-rands [index] (distinct (take 4 (repeatedly #(rand-int *sector-count*)))))
@@ -26,14 +27,9 @@
   (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
     (concat (map get-menu-choice-from-sector sectors) [["b" "Drop Bomb!"]])))
 
-(defn color-blue [] (print (char 27)) (print "[34m"))
-(defn color-clear [] (print (char 27)) (print "[0m"))
-
 (defn print-menu [player]
   (let [menu (get-menu player)]
-    (color-blue)
-    (write "Hello, " (:name @player) ".")
-    (color-clear)
+    (write "Hello, " (color/inject :blue true)  (:name @player) (color/reset) ".")
     (write "You're in sector " (:in-sector @player) ".")
     (if (some #{(:in-sector @player)} @*bombs*)
       (write "**This sector has a bomb in it!**"))
