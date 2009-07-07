@@ -16,17 +16,18 @@
   (print \newline)
   (flush))
 
+(defn get-menu-choice-from-sector [sector]
+  [sector (apply str "Go to sector " sector ".")])
+
 (defn get-menu [player]
-  (let [menu (ref [])]
-    (dosync
-     (doseq [option (sort (nth @*sectors* (:in-sector @player)))]
-       (alter menu conj [option (apply str "Go to sector " option ".")])))
-    menu))
+  (write "getting menu!" )
+  (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
+    (map get-menu-choice-from-sector sectors)))
 
 (defn print-menu [player menu]
   (write "Hello, " (:name @player) ".")
   (write "You're in sector " (:in-sector @player) ".")
-  (doseq [option @menu]
+  (doseq [option menu]
     (let [choice (first option)
           text (first (rest option))]
       (write "(" choice ") - " text)))
@@ -34,7 +35,7 @@
   (flush))
 
 (defn execute-choice [choice player menu]
-  (if (some #{(str choice)} (map #(str (first %)) @menu))
+  (if (some #{(str choice)} (map #(str (first %)) menu))
     (dosync (alter player assoc :in-sector (Integer. choice)))
     (write "Invailid choice.")))
 
