@@ -25,16 +25,20 @@
   (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
     (map get-menu-choice-from-sector sectors)))
 
+(defn color-blue [] (print (char 27)) (print "[34m"))
+(defn color-clear [] (print (char 27)) (print "[0m"))
+
 (defn print-menu [player]
   (let [menu (get-menu player)]
+    (color-blue)
     (write "Hello, " (:name @player) ".")
+    (color-clear)
     (write "You're in sector " (:in-sector @player) ".")
     (doseq [option menu]
       (let [choice (first option)
             text (first (rest option))]
         (write "(" choice ") - " text)))
-    (print "> ")
-    (flush)))
+    (print "> ")(flush)))
 
 (defn execute-choice [choice player]
   (let [menu (get-menu player)]
@@ -49,6 +53,7 @@
     (print "> ")(flush)
     (let [player (ref {:name (read-line)
                        :in-sector (rand-int *sector-count*)})]
+      (dosync (commute *players* conj player))
       (loop []
         (print-menu player)
         (execute-choice (read-line) player)
