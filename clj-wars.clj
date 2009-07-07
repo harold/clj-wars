@@ -53,13 +53,17 @@
     (write "Enter your name:")
     (print "> ")(flush)
     (let [player (ref {:name (read-line)
-                       :in-sector (rand-int *sector-count*)})]
+                       :in-sector (rand-int *sector-count*)
+                       :keep-playing true})]
       (dosync (commute *players* conj player))
       (loop []
         (print-menu player)
-        (execute-choice (read-line) player)
-        (flush)
-        (recur)))))
+        (let [input (read-line)]
+          (if input
+            (do
+              (execute-choice input player)(flush))
+            (dosync (alter player assoc :keep-playing false))))
+        (if (:keep-playing @player) (recur))))))
 
 (def port 8866)
 (defonce server (create-server port #(client-handler %1 %2)))
