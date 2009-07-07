@@ -11,6 +11,7 @@
 (graph/write-image @*sectors*)
 
 (def *players* (ref []))
+(def *bombs* (ref []))
 
 (defn write [& in-str]
   (print (apply str in-str))
@@ -23,7 +24,7 @@
 
 (defn get-menu [player]
   (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
-    (map get-menu-choice-from-sector sectors)))
+    (concat (map get-menu-choice-from-sector sectors) [["b" "Drop Bomb!"]])))
 
 (defn color-blue [] (print (char 27)) (print "[34m"))
 (defn color-clear [] (print (char 27)) (print "[0m"))
@@ -34,6 +35,8 @@
     (write "Hello, " (:name @player) ".")
     (color-clear)
     (write "You're in sector " (:in-sector @player) ".")
+    (if (some #{(:in-sector @player)} @*bombs*)
+      (write "**This sector has a bomb in it!**"))
     (doseq [option menu]
       (let [choice (first option)
             text (first (rest option))]
@@ -42,9 +45,11 @@
 
 (defn execute-choice [choice player]
   (let [menu (get-menu player)]
-    (if (some #{(str choice)} (map #(str (first %)) menu))
-      (dosync (alter player assoc :in-sector (Integer. choice)))
-      (write "Invailid choice."))))
+    (if (= "b" choice)
+      (dosync (commute *bombs* conj (:in-sector @player)))
+      (if (some #{(str choice)} (map #(str (first %)) menu))
+        (dosync (alter player assoc :in-sector (Integer. choice)))
+        (write "Invailid choice.")))))
 
 (defn client-handler [in out]
   (binding [*in* (reader in)
