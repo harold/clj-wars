@@ -10,6 +10,8 @@
 (def *sectors* (ref (create-sectors)))
 (graph/write-image @*sectors*)
 
+(def *players* (ref []))
+
 (defn write [& in-str]
   (print (apply str in-str))
   (print \return)
@@ -20,24 +22,25 @@
   [sector (apply str "Go to sector " sector ".")])
 
 (defn get-menu [player]
-  (write "getting menu!" )
   (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
     (map get-menu-choice-from-sector sectors)))
 
-(defn print-menu [player menu]
-  (write "Hello, " (:name @player) ".")
-  (write "You're in sector " (:in-sector @player) ".")
-  (doseq [option menu]
-    (let [choice (first option)
-          text (first (rest option))]
-      (write "(" choice ") - " text)))
-  (print "> ")
-  (flush))
+(defn print-menu [player]
+  (let [menu (get-menu player)]
+    (write "Hello, " (:name @player) ".")
+    (write "You're in sector " (:in-sector @player) ".")
+    (doseq [option menu]
+      (let [choice (first option)
+            text (first (rest option))]
+        (write "(" choice ") - " text)))
+    (print "> ")
+    (flush)))
 
-(defn execute-choice [choice player menu]
-  (if (some #{(str choice)} (map #(str (first %)) menu))
-    (dosync (alter player assoc :in-sector (Integer. choice)))
-    (write "Invailid choice.")))
+(defn execute-choice [choice player]
+  (let [menu (get-menu player)]
+    (if (some #{(str choice)} (map #(str (first %)) menu))
+      (dosync (alter player assoc :in-sector (Integer. choice)))
+      (write "Invailid choice."))))
 
 (defn client-handler [in out]
   (binding [*in* (reader in)
@@ -46,11 +49,11 @@
     (print "> ")(flush)
     (let [player (ref {:name (read-line)
                        :in-sector (rand-int *sector-count*)})]
-      (loop [menu (get-menu player)]
-        (print-menu player menu)
-        (execute-choice (read-line) player menu)
+      (loop []
+        (print-menu player)
+        (execute-choice (read-line) player)
         (flush)
-        (recur (get-menu player))))))
+        (recur)))))
 
 (def port 8866)
 (defonce server (create-server port #(client-handler %1 %2)))
