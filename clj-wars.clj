@@ -1,6 +1,12 @@
 (ns clj-wars
   (:use [clojure.contrib server-socket duck-streams]))
 
+(def *debug* *out*)
+(defn debug-out [& in-str]
+  (.append *debug* (apply str in-str))
+  (.append *debug* "\r\n")
+  (.flush *debug*))
+
 (load-file "graph.clj")
 (load-file "color.clj")
 
@@ -54,6 +60,9 @@
         :in-sector (rand-int *sector-count*)
         :keep-playing true}))
 
+(defn remove-player [players player]
+  (filter #(= @player %) players))
+
 (defn client-handler [in out]
   (binding [*in* (reader in)
             *out* (writer out)]
@@ -67,7 +76,9 @@
           (if input
             (do (execute-choice input player)(flush))
             (dosync (alter player assoc :keep-playing false))))
-        (if (:keep-playing @player) (recur))))))
+        (if (:keep-playing @player)
+          (recur)
+          (dosync (alter *players* remove-player player)))))))
 
 (def port 8866)
 (defonce server (create-server port #(client-handler %1 %2)))
