@@ -25,7 +25,9 @@
 
 (defn get-menu [player]
   (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
-    (concat (map get-menu-choice-from-sector sectors) [["b" "Drop Bomb!"]])))
+    (concat (map get-menu-choice-from-sector sectors)
+            [["b" "Drop Bomb!"]
+             ["q" "Quit."]])))
 
 (defn print-menu [player]
   (let [menu (get-menu player)]
@@ -33,35 +35,37 @@
     (write "You're in sector " (:in-sector @player) ".")
     (if (some #{(:in-sector @player)} @*bombs*)
       (write "**This sector has a bomb in it!**"))
-    (doseq [option menu]
-      (let [choice (first option)
-            text (first (rest option))]
-        (write "(" choice ") - " text)))
+    (doseq [[choice text] menu]
+        (write "(" choice ") - " text))
     (print "> ")(flush)))
 
 (defn execute-choice [choice player]
   (let [menu (get-menu player)]
-    (if (= "b" choice)
-      (dosync (commute *bombs* conj (:in-sector @player)))
-      (if (some #{(str choice)} (map #(str (first %)) menu))
-        (dosync (alter player assoc :in-sector (Integer. choice)))
-        (write "Invailid choice.")))))
+    (cond (= "b" choice)
+            (dosync (commute *bombs* conj (:in-sector @player)))
+          (= "q" choice)
+            (dosync (dosync (alter player assoc :keep-playing false)))
+          (some #{(str choice)} (map #(str (first %)) menu))
+            (dosync (alter player assoc :in-sector (Integer. choice)))
+          :else (write "Invailid choice."))))
+
+(defn new-player [name]
+  (ref {:name name
+        :in-sector (rand-int *sector-count*)
+        :keep-playing true}))
 
 (defn client-handler [in out]
   (binding [*in* (reader in)
             *out* (writer out)]
     (write "Enter your name:")
     (print "> ")(flush)
-    (let [player (ref {:name (read-line)
-                       :in-sector (rand-int *sector-count*)
-                       :keep-playing true})]
+    (let [player (new-player (read-line))]
       (dosync (commute *players* conj player))
       (loop []
         (print-menu player)
         (let [input (read-line)]
           (if input
-            (do
-              (execute-choice input player)(flush))
+            (do (execute-choice input player)(flush))
             (dosync (alter player assoc :keep-playing false))))
         (if (:keep-playing @player) (recur))))))
 
