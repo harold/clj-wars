@@ -13,6 +13,8 @@
   (doto (new java.io.FileWriter "a.dot") (.write (get-str in-seq)) (.close)))
 
 (defn write-image [in-seq]
-  (let [process (new java.lang.ProcessBuilder ["dot" "-Tpng" "a.dot" "-o" "a.png"])]
-    (write-file in-seq)
-    (.start process)))
+  (try
+   (let [process (new java.lang.ProcessBuilder ["dot" "-Tpng" "a.dot" "-o" "a.png"])]
+     (write-file in-seq)
+     (.start process))
+   (catch Exception e)))
