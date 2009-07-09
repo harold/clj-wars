@@ -33,35 +33,53 @@
   (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
     (concat (map get-menu-choice-from-sector sectors)
             [["b" "Drop Bomb!"]
-             ["q" "Quit."]])))
+             ["q" "Quit."]
+             ["s" "See Scoreboard."]])))
 
 (defn print-menu [player]
   (let [menu (get-menu player)]
     (write "Hello, " (color/inject :blue true)  (:name @player) (color/reset) ".")
     (write "You're in sector " (:in-sector @player) ".")
-    (if (some #{(:in-sector @player)} @*bombs*)
-      (write "**This sector has a bomb in it!**"))
     (doseq [[choice text] menu]
         (write "(" choice ") - " text))
     (print "> ")(flush)))
 
+(defn bomb-hit? [bomb sector player]
+  (and (= (:in-sector bomb) (Integer. sector))
+       (not (= (:player bomb) player))))
+
+(defn remove-bombs [bombs sector player]
+  (filter #(not (bomb-hit? % sector player)) bombs))
+
+(defn send-to-sector [sector player]
+  (doseq [bomb (filter #(bomb-hit? % sector player) @*bombs*)]
+    (write (:name @(:player bomb)) " punk'd you with a bomb!")
+    (dosync (alter (:player bomb) assoc :score (inc (:score @(:player bomb))))))
+  (dosync (alter *bombs* remove-bombs sector player))
+  (dosync (alter player assoc :in-sector (Integer. sector))))
+
 (defn execute-choice [choice player]
   (let [menu (get-menu player)]
     (cond (= "b" choice)
-            (dosync (commute *bombs* conj (:in-sector @player)))
+            (dosync (commute *bombs* conj {:in-sector (:in-sector @player) :player player}))
           (= "q" choice)
             (dosync (dosync (alter player assoc :keep-playing false)))
+          (= "s" choice)
+            (do (write "=== Score ===")
+                (doseq [p @*players*] (write (:name @p) ": " (:score @p)))
+                (write ""))
           (some #{(str choice)} (map #(str (first %)) menu))
-            (dosync (alter player assoc :in-sector (Integer. choice)))
+            (send-to-sector choice player)
           :else (write "Invailid choice."))))
 
 (defn new-player [name]
   (ref {:name name
+        :score 0
         :in-sector (rand-int *sector-count*)
         :keep-playing true}))
 
 (defn remove-player [players player]
-  (filter #(= @player %) players))
+  (filter #(= @player %) players)) ;; TODO: There exists a bug here.
 
 (defn client-handler [in out]
   (binding [*in* (reader in)
