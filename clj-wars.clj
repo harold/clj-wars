@@ -11,7 +11,9 @@
 (load-file "color.clj")
 
 (def *sector-count* 25)
-(defn get-rands [index] (distinct (take 4 (repeatedly #(rand-int *sector-count*)))))
+(defn get-rands [index] 
+  (filter #(not (== index %))
+	  (distinct (take 4 (repeatedly #(rand-int *sector-count*))))))
 (defn create-sectors [] (map get-rands (range *sector-count*)))
 
 (def *sectors* (ref (create-sectors)))
@@ -30,11 +32,14 @@
   [sector (apply str "Go to sector " sector ".")])
 
 (defn get-menu [player]
-  (let [sectors (sort (nth @*sectors* (:in-sector @player)))]
-    (concat (map get-menu-choice-from-sector sectors)
-            [["b" "Drop Bomb!"]
-             ["q" "Quit."]
-             ["s" "See Scoreboard."]])))
+  (let [sectors (sort (nth @*sectors* (:in-sector @player)))
+	menu-items (concat (map get-menu-choice-from-sector sectors)
+			   [["b" "Drop Bomb!"]
+			    ["q" "Quit."]
+			    ["s" "See Scoreboard."]])]
+    (if (and (@player :num-bombs) (> (@player :num-bombs) 0))
+      menu-items
+      (filter (fn [[key message]] (not(= key "b"))) menu-items))))
 
 (defn print-menu [player]
   (let [menu (get-menu player)]
@@ -56,12 +61,22 @@
     (write (:name @(:player bomb)) " punk'd you with a bomb!")
     (dosync (alter (:player bomb) assoc :score (inc (:score @(:player bomb))))))
   (dosync (alter *bombs* remove-bombs sector player))
-  (dosync (alter player assoc :in-sector (Integer. sector))))
+  (dosync (alter player assoc :in-sector (Integer. sector)))
+  (when (== 1 (rand-int 5))
+    (write (color/inject :green true) "You found a new bomb" (color/reset))
+    (dosync (alter player assoc :num-bombs (inc (@player :num-bombs))))))
+
 
 (defn execute-choice [choice player]
   (let [menu (get-menu player)]
     (cond (= "b" choice)
-            (dosync (commute *bombs* conj {:in-sector (:in-sector @player) :player player}))
+	    (if (and (@player :num-bombs) (> (@player :num-bombs) 0))
+	      (do
+		(dosync (commute *bombs* conj {:in-sector (:in-sector @player) :player player}))
+		(dosync (alter player assoc :num-bombs (dec (@player :num-bombs)))))
+	      (do
+		(dosync (alter player assoc :num-bombs 0))
+		(write (color/inject :red true) "You ain't got no bombs, foo" (color/reset))))
           (= "q" choice)
             (dosync (dosync (alter player assoc :keep-playing false)))
           (= "s" choice)
@@ -70,16 +85,17 @@
                 (write ""))
           (some #{(str choice)} (map #(str (first %)) menu))
             (send-to-sector choice player)
-          :else (write "Invailid choice."))))
+          :else (write (color/inject :red true) "Invailid choice." (color/reset)))))
 
 (defn new-player [name]
   (ref {:name name
         :score 0
         :in-sector (rand-int *sector-count*)
-        :keep-playing true}))
+        :keep-playing true
+	:num-bombs 5}))
 
 (defn remove-player [players player]
-  (filter #(= @player %) players)) ;; TODO: There exists a bug here.
+  (filter #(not(= player %)) players))
 
 (defn client-handler [in out]
   (binding [*in* (reader in)
